@@ -26,17 +26,17 @@ struct Expected {
   Box rtl;
 };
 
-// A new config, plus the erratum that keeps the cross positions the multi-line
-// alignment pass gave before it honored margins and relative insets.
+// A new config with or without the erratum that keeps the cross positions the
+// multi-line alignment pass gave before it honored margins and relative insets.
+// New configs already carry it; setting it explicitly keeps these tests on the
+// intended behavior even if that default changes.
 YGConfigRef newConfig(bool withErratum) {
   YGConfigRef config = YGConfigNew();
-  if (withErratum) {
-    YGConfigSetErrata(
-        config,
-        static_cast<YGErrata>(
-            YGConfigGetErrata(config) |
-            YGErrataWrapCrossAlignmentIgnoresMarginAndInset));
-  }
+  const int errata = YGConfigGetErrata(config);
+  const int bit = YGErrataWrapCrossAlignmentIgnoresMarginAndInset;
+  YGConfigSetErrata(
+      config,
+      static_cast<YGErrata>(withErratum ? errata | bit : errata & ~bit));
   return config;
 }
 
@@ -361,35 +361,40 @@ void checkStaticItemWithInset(bool withErratum, float expectedTop) {
 } // namespace
 
 // YGErrataWrapCrossAlignmentIgnoresMarginAndInset keeps the positions this
-// pass gave before the fix. YGErrataAll and YGErrataClassic include it, new
-// configs do not.
+// pass gave before the fix. New configs carry it, and so do YGErrataAll and
+// YGErrataClassic. Clearing it gives the spec positions.
 TEST(YogaTest, wrap_errata_keeps_cross_positions_without_margin) {
   EXPECT_NE(YGErrataAll & YGErrataWrapCrossAlignmentIgnoresMarginAndInset, 0);
   EXPECT_NE(
       YGErrataClassic & YGErrataWrapCrossAlignmentIgnoresMarginAndInset, 0);
 
   YGConfigRef config = YGConfigNew();
-  EXPECT_EQ(
-      YGConfigGetErrata(config) &
-          YGErrataWrapCrossAlignmentIgnoresMarginAndInset,
-      0);
+  const YGErrata defaults = YGConfigGetErrata(config);
   YGConfigFree(config);
+  EXPECT_NE(defaults & YGErrataWrapCrossAlignmentIgnoresMarginAndInset, 0);
 
   // The second line starts at 38. The erratum leaves the top margin of 4 out
   // of each item's position.
+  expectTops(layoutWrappingRowWithMargins(defaults), {0, 0, 38});
   expectTops(layoutWrappingRowWithMargins(YGErrataAll), {0, 0, 38});
   expectTops(layoutWrappingRowWithMargins(YGErrataClassic), {0, 0, 38});
   expectTops(
       layoutWrappingRowWithMargins(
           YGErrataWrapCrossAlignmentIgnoresMarginAndInset),
       {0, 0, 38});
+  expectTops(
+      layoutWrappingRowWithMargins(
+          static_cast<YGErrata>(
+              defaults &
+              (YGErrataAll ^ YGErrataWrapCrossAlignmentIgnoresMarginAndInset))),
+      {4, 4, 42});
   expectTops(layoutWrappingRowWithMargins(YGErrataNone), {4, 4, 42});
 }
 
-// The same layouts as the tests above that keep the margin and inset. With
-// the erratum, flex-start applies the inset but not the margin, center drops
-// both, flex-end and stretch drop the inset, and wrap-reverse mirrors the
-// whole position.
+// An item with a margin and a relative inset on the second line of a wrapping
+// container. With the erratum, flex-start applies the inset but not the
+// margin, center drops both, flex-end and stretch drop the inset, and
+// wrap-reverse mirrors the whole position.
 TEST(YogaTest, wrap_errata_keeps_previous_positions_for_every_alignment) {
   {
     SCOPED_TRACE("row, wrap");

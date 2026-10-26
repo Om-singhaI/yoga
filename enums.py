@@ -105,9 +105,8 @@ ENUMS = {
         # axis without all of their margins and relative insets: `flex-start`
         # applies the inset in place of the leading margin, `stretch` and
         # `flex-end` drop the inset, and `center` centers the border box.
-        # Not set on new configs, but part of "All" and "Classic" so they keep
-        # the pre-fix geometry. Clear this bit to opt into the spec-correct
-        # positions.
+        # Set by default on new configs to preserve the pre-fix geometry.
+        # Clear this bit to opt into the spec-correct positions.
         ("WrapCrossAlignmentIgnoresMarginAndInset", 1 << 5),
         # Enable all incorrect behavior (preserve compatibility)
         ("All", 0x7FFFFFFF),
